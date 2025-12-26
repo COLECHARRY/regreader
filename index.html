@@ -26,12 +26,14 @@
     tr:hover { background: #f9fafb; }
     .group-header { background: #f0f4f8; font-weight: bold; }
     .value-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 8px 0; }
-    .hex-display { font-weight: bold; color: #2563eb; background: #eff6ff; padding: 4px 10px; border-radius: 4px; }
+    .hex-input { font-weight: bold; color: #2563eb; background: #eff6ff; padding: 4px 10px; border-radius: 4px; border: 1px solid #2563eb; width: 150px; }
     .btn { padding: 4px 10px; font-size: 0.85rem; border-radius: 4px; cursor: pointer; color: white; }
     .copy-btn { background: #10b981; }
     .copy-btn:hover { background: #059669; }
     .reset-btn { background: #f59e0b; }
     .reset-btn:hover { background: #d97706; }
+    .generate-btn { background: #6366f1; }
+    .generate-btn:hover { background: #4f46e5; }
     colgroup col:nth-child(1) { width: 10%; min-width: 90px; }
     colgroup col:nth-child(2) { width: 18%; min-width: 140px; }
     colgroup col:nth-child(3) { width: 10%; min-width: 90px; }
@@ -359,6 +361,86 @@
       }
     }
 
+    async function generateCode(offset) {
+      const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const fields = allData.filter(item => item.offset === offset);
+      if (!fields.length) return alert('未找到该寄存器的字段数据');
+
+      const regValue = currentValues[offset] ?? originalDefaults[offset] ?? 0n;
+      const width = declaredWidths[offset] || getCoveredWidth(fields);
+      
+      // 地址 >> 2 （假设是32位字地址）
+      const addr = offset.startsWith('0x') ? BigInt(offset) >> 2n : BigInt(`0x${offset}`) >> 2n;
+      const addrHex = '0x' + addr.toString(16).toUpperCase();
+      
+      // 寄存器值 hex（按实际宽度填充）
+      const valHex = '0x' + regValue.toString(16).toUpperCase().padStart(Math.ceil(width / 4), '0');
+
+      // 排序字段：从高位到低位
+      const sortedFields = [...fields]
+        .filter(f => {
+          const name = f.field_name.toLowerCase();
+          return !name.includes('reserved') && name !== 'blank' && name.trim() !== '';
+        })
+        .sort((a, b) => parseBitRange(b.bit_range).msb - parseBitRange(a.bit_range).msb);
+
+      // 生成注释内容
+      let commentParts = [];
+      sortedFields.forEach(field => {
+        const { msb, lsb } = parseBitRange(field.bit_range);
+        const fieldWidth = msb - lsb + 1;
+        const fieldVal = (regValue >> BigInt(lsb)) & ((1n << BigInt(fieldWidth)) - 1n);
+        
+        // 值显示：如果 ≤4位用二进制，否则用十六进制
+        let valStr;
+        if (fieldWidth <= 4) {
+          valStr = fieldVal.toString(2).padStart(fieldWidth, '0');
+        } else {
+          const pad = Math.ceil(fieldWidth / 4);
+          valStr = '0x' + fieldVal.toString(16).toUpperCase().padStart(pad, '0');
+        }
+
+        const fieldDisplay = `${field.field_name}[${msb}:${lsb}] ${valStr}`;
+        commentParts.push(fieldDisplay);
+      });
+
+      const comment = commentParts.length > 0 
+        ? '// ' + commentParts.join('  ')
+        : '// (无有效可写字段或全部为reserved)';
+
+      const codeLine = `adi.write(${addrHex}, ${valHex}); ${comment}`;
+
+      try {
+        await navigator.clipboard.writeText(codeLine);
+        alert(`已复制到剪贴板：\n\n${codeLine}`);
+      } catch (err) {
+        alert(`复制失败，请手动复制：\n\n${codeLine}`);
+        console.error(err);
+      }
+    }
+
+    function updateHex(offset, newHexInput) {
+      try {
+        let newValStr = newHexInput.trim().toLowerCase();
+        if (newValStr.startsWith('0x')) newValStr = newValStr.slice(2);
+        if (!/^[0-9a-f]+$/.test(newValStr)) throw new Error('无效的十六进制');
+
+        const newVal = BigInt(`0x${newValStr}`);
+        const width = declaredWidths[offset] || 32; // 默认32位
+        const maxVal = (1n << BigInt(width)) - 1n;
+        if (newVal > maxVal) throw new Error(`值超过宽度限制（最大 ${maxVal.toString(16).toUpperCase()}）`);
+
+        currentValues[offset] = newVal;
+
+        const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const filtered = currentSearchQuery ? allData.filter(item => 
+          Object.values(item).some(v => String(v).toLowerCase().includes(currentSearchQuery))) : allData;
+        displayFields(filtered);
+      } catch (err) {
+        alert(`更新失败：${err.message}`);
+      }
+    }
+
     function displayFields(data) {
       const tbody = document.getElementById('tableBody');
       tbody.innerHTML = '';
@@ -418,7 +500,8 @@
         fields = [...fields, ...pseudoFields].sort((a,b) => parseBitRange(b.bit_range).msb - parseBitRange(a.bit_range).msb);
 
         const regValue = currentValues[offset] ?? originalDefaults[offset] ?? 0n;
-        const hex = '0x' + regValue.toString(16).toUpperCase().padStart(Math.ceil(width/4), '0');
+        const pad = Math.ceil(width/4);
+        const hex = regValue.toString(16).toUpperCase().padStart(pad, '0'); // 不带0x，便于编辑
 
         const header = document.createElement('tr');
         header.className = 'group-header';
@@ -428,8 +511,9 @@
           <td colspan="2">${fields[0].reg_name}</td>
           <td colspan="2">
             <div class="value-row">
-              当前值: <span class="hex-display">${hex}</span>
+              当前值: 0x<input class="hex-input" type="text" value="${hex}" data-offset="${offset}" />
               <span class="btn copy-btn" onclick="copyHex('${offset}')">复制Hex</span>
+              <span class="btn generate-btn" onclick="generateCode('${offset}')">生成代码</span>
               <span class="btn reset-btn" onclick="resetToOriginalDefault('${offset}')">恢复默认</span>
             </div>
           </td>
@@ -466,6 +550,15 @@
             <td class="description ${isBlank?'text-red-600':''}">${f.description || '-'}</td>
           `;
           tbody.appendChild(tr);
+        });
+      });
+
+      // 添加 hex input 变更监听
+      document.querySelectorAll('.hex-input').forEach(input => {
+        input.addEventListener('change', e => {
+          const offset = e.target.dataset.offset;
+          const newHex = e.target.value;
+          updateHex(offset, newHex);
         });
       });
     }
