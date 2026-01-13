@@ -1,637 +1,793 @@
-<!doctype html>
-<html lang="zh">
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-  <meta name="theme-color" content="#2563eb">
-
-  <link rel="manifest" href="manifest.json">
-
-  <link rel="apple-touch-icon" href="icon-192.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="yes">
-
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>寄存器管理工具 - 带宽度校验版</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>寄存器综合管理工具 v1.1</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { font-family: system-ui, sans-serif; background: #f3f4f6; color: #1f2937; line-height: 1.6; margin: 0; padding-top: 90px; }
-    .fixed-search { position: fixed; top: 0; left: 0; width: 100%; background: white; padding: 1rem 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 1000; }
-    .fixed-search input { width: 100%; max-width: 900px; margin: 0 auto; display: block; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; }
-    .card { background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 1.5rem; width: 100%; max-width: 100%; margin-left: auto; margin-right: auto; box-sizing: border-box;}
-    .container { max-width: 2000px; margin: 0 auto; padding: 0 1rem; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
-    th, td { padding: 5px; border: 1px solid #e5e7eb; text-align: left; vertical-align: top; }
-    th { background: #e5e7eb; position: sticky; top: 0px; z-index: 10; white-space: nowrap; }
-    tr:hover { background: #f9fafb; }
-    .group-header { background: #f0f4f8; font-weight: bold; }
-    .value-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 8px 0; }
-    .hex-input { font-weight: bold; color: #2563eb; background: #eff6ff; padding: 4px 10px; border-radius: 4px; border: 1px solid #2563eb; width: 150px; }
-    .btn { padding: 4px 10px; font-size: 0.85rem; border-radius: 4px; cursor: pointer; color: white; }
-    .copy-btn { background: #10b981; }
-    .copy-btn:hover { background: #059669; }
-    .reset-btn { background: #f59e0b; }
-    .reset-btn:hover { background: #d97706; }
-    .generate-btn { background: #6366f1; }
-    .generate-btn:hover { background: #4f46e5; }
-    colgroup col:nth-child(1) { width: 10%; min-width: 90px; }
-    colgroup col:nth-child(2) { width: 18%; min-width: 140px; }
-    colgroup col:nth-child(3) { width: 10%; min-width: 90px; }
-    colgroup col:nth-child(4) { width: 16%; min-width: 130px; }
-    colgroup col:nth-child(5) { width: 8%; min-width: 60px; }
-    colgroup col:nth-child(6) { width: 10%; min-width: 90px; }
-    colgroup col:nth-child(7) { width: 28%; min-width: 250px; word-break: break-word; white-space: normal; }
-    .binary-container-wrapper { margin-top: 8px; width: 100%; }
-    .binary-container {
-      font-family: monospace; font-size: 0.95rem; background: #0f172a; color: #e2e8f0;
-      padding: 10px 12px; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 6px; width: 100%; box-sizing: border-box;
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b; /* 新增警告色 */
+      --bg-gray: #f8fafc;
     }
-    .field-color-0 { background: linear-gradient(135deg, #ff9a9e, #fad0c4); }
-    .field-color-1 { background: linear-gradient(135deg, #a18cd1, #fbc2eb); }
-    .field-color-2 { background: linear-gradient(135deg, #84fab0, #8fd3f4); }
-    .field-color-3 { background: linear-gradient(135deg, #89f7fe, #66a6ff); }
-    .field-color-4 { background: linear-gradient(135deg, #f093fb, #f5576c); }
-    .field-color-5 { background: linear-gradient(135deg, #4facfe, #00f2fe); }
-    .field-color-6 { background: linear-gradient(135deg, #43e97b, #38f9d7); }
-    .field-color-7 { background: linear-gradient(135deg, #fa709a, #fee140); }
-    .field-color-8 { background: linear-gradient(135deg, #30cfd0, #330867); }
-    .field-color-9 { background: linear-gradient(135deg, #667eea, #764ba2); }
-    .bit-field { display: inline-flex; gap: 2px; border-radius: 6px; padding: 3px; margin: 2px 4px; transition: all 0.2s; position: relative; box-shadow: 0 2px 4px rgba(0,0,0,0.3); flex-shrink: 0; }
-    .bit-field:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.4); z-index: 10; }
-    .bit-single { width: 26px; height: 40px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(255,255,255,0.95); color: #1f2937; border-radius: 4px; cursor: pointer; user-select: none; transition: all 0.15s; font-weight: bold; }
-    .bit-single:hover { background: #fbbf24 !important; color: white !important; transform: scale(1.2); }
-    .bit-value { font-size: 1rem; }
-    .bit-num { font-size: 0.6rem; color: inherit; }
-    .bit-reserved { background: repeating-linear-gradient(45deg, #475569, #475569 10px, #334155 10px, #334155 20px) !important; opacity: 0.8; }
-    .bit-field[data-tooltip]:hover::after {content: attr(data-tooltip);
-      position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
-      background: rgba(15,23,42,0.98); color: #e2e8f0; padding: 10px 14px; border-radius: 8px;
-      font-size: 0.9rem; white-space: pre-line; z-index: 100; min-width: 280px; max-width: 420px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #475569; }
-    .bit-field[data-tooltip]:hover::before {
-      content: ''; position: absolute; bottom: 115%; left: 50%; transform: translateX(-50%);
-      border: 8px solid transparent; border-top-color: rgba(15,23,42,0.98); z-index: 100;
-        opacity: 1;
-        pointer-events: none;
-        z-index: 100000;
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg-gray);
+      color: #1e293b;
+      margin: 0;
+      padding: 0;
+    }
+    .main-container { max-width: 1440px; margin: 0 auto; padding: 2rem; }
+    
+    /* 顶部控制面板 */
+    .control-panel {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      position: sticky;
+      top: 1rem;
+      z-index: 50;
     }
 
-    td.description { word-break: break-word; white-space: normal; max-width: 400px; }
+    /* 按钮样式重定义 */
+    .btn-base {
+      padding: 0.5rem 1.25rem;
+      border-radius: 6px;
+      font-weight: 500;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-success { background: var(--success); color: white; }
+    /* 新增 Warning 按钮样式 */
+    .btn-warning { background: #fffbeb; color: var(--warning); border: 1px solid #fcd34d; }
+    .btn-warning:hover { background: #fef3c7; }
+    
+    .btn-danger { background: #fee2e2; color: var(--danger); border: 1px solid #fecaca; }
+    .btn-danger:hover { background: #fecaca; }
+
+    /* 表格样式 */
+    .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th { background: #f1f5f9; color: #475569; font-weight: 600; text-align: left; padding: 0.75rem 1rem; border-bottom: 2px solid #e2e8f0; }
+    td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+    
+    .group-header { background: #f8fafc !important; }
+    .group-header td { border-bottom: 2px solid #e2e8f0; padding-top: 1.25rem; }
+
+    /* 寄存器交互区 */
+    .hex-input {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 700;
+      color: var(--primary);
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      width: 120px;
+    }
+    
+    .binary-container {
+      display: flex; flex-wrap: wrap; gap: 4px; background: #1e293b; 
+      padding: 8px; border-radius: 8px; width: fit-content;
+    }
+
+    /* 位域颜色 */
+    .bit-field { display: inline-flex; gap: 1px; padding: 2px; border-radius: 4px; position: relative; cursor: default; }
+    .field-color-0 { background: #fb7185; } .field-color-1 { background: #818cf8; }
+    .field-color-2 { background: #34d399; } .field-color-3 { background: #fbbf24; }
+    .field-color-4 { background: #22d3ee; } .field-color-5 { background: #a78bfa; }
+    
+    .bit-single {
+      width: 22px; height: 34px; display: flex; flex-direction: column; 
+      align-items: center; justify-content: center; background: rgba(255,255,255,0.9);
+      font-size: 0.75rem; border-radius: 2px; cursor: pointer;
+    }
+    .bit-single:hover { background: #fff; transform: scale(1.1); z-index: 10; }
+    .bit-num { font-size: 0.55rem; color: #64748b; }
+    .bit-reserved { background: #475569 !important; opacity: 0.6; color: white; }
+
+    /* Tooltip */
+    .bit-field[data-tooltip]:hover::after {
+      content: attr(data-tooltip); position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%);
+      background: #1e293b; color: white; padding: 8px 12px; border-radius: 6px;
+      font-size: 0.75rem; white-space: pre-line; z-index: 100; width: 200px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+    }
+
+    .hidden { display: none !important; }
+    
+    /* 工具提示按钮 */
+    .action-btn {
+      display: flex; align-items: center; gap: 4px; padding: 4px 8px;
+      border-radius: 4px; font-size: 0.75rem; transition: background 0.2s;
+    }
+    .action-btn:hover { background: #e2e8f0; }
+
+    /* 新增高亮样式 */
+    .highlight-field { border: 2px solid #fef08a; box-shadow: 0 0 10px #fef08a; }
+    .highlight-text { background-color: #fef08a; }
   </style>
 </head>
 <body>
-  <div class="fixed-search">
-    <input type="text" id="searchInput" placeholder="输入地址、寄存器名、字段名、RW、Reset 或描述关键词进行搜索...">
-  </div>
-  <div class="container">
-    <h1 class="text-4xl font-bold text-center my-8">寄存器管理工具 - 带宽度校验</h1>
-    <div class="card">
-      <h2 class="text-2xl font-semibold mb-4">1. 上传寄存器表格（Excel）</h2>
-      <p class="text-gray-600 mb-4">需按照正确顺序整理表格：Offset||RegName||Width||Bit||FieldName||RW||ResetValue||Description
 
-      </p>
-      <div class="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
-        <input type="file" id="fileInput" accept=".xlsx,.xls" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
-        <button onclick="parseExcel()" class="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700 transition font-medium whitespace-nowrap">
-          解析并保存
+<div class="main-container">
+  <div class="control-panel">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-4 flex-1 min-w-[300px]">
+        <div class="relative flex-1 max-w-[200px]">
+          <input type="file" id="excelFiles" multiple accept=".xlsx,.xls" class="hidden" onchange="handleFileSelect(this)">
+          <button onclick="document.getElementById('excelFiles').click()" class="btn-base btn-primary w-full justify-center">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-width="2" stroke-linecap="round"/></svg>
+            上传表格
+          </button>
+        </div>
+        <input type="text" id="searchInput" placeholder="搜索地址、名称、描述... 支持多个地址如0x0000&&0x0004" 
+               class="flex-[2] p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="resetAllBtn" onclick="resetAll()" class="btn-base btn-warning hidden">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          全部复位
+        </button>
+        <button id="genAllCodeBtn" onclick="generateAllCode()" class="btn-base btn-primary hidden">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 20l-4-4m4 4l4-4m-4 4V4" stroke-width="2" stroke-linecap="round"/></svg>
+          生成所有代码
+        </button>
+        <button id="exportBtn" onclick="exportToExcel()" class="btn-base btn-success hidden">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke-width="2" stroke-linecap="round"/></svg>
+          导出
+        </button>
+        <button onclick="clearData()" class="btn-base btn-danger">
+          清空
         </button>
       </div>
-      <p id="status" class="text-sm font-medium text-gray-600 min-h-[1.5rem]"></p>
     </div>
-    <div class="card">
-      <h2 class="text-2xl font-semibold mb-4">2. 搜索与查看</h2>
-      <button onclick="clearData()" class="bg-red-600 text-white px-6 py-3 rounded-md hover:bg-red-700 transition font-medium whitespace-nowrap mb-4">
-        清空所有数据
-      </button>
-      <div class="overflow-x-auto">
-        <table id="resultTable">
-          <colgroup>
-            <col><col><col><col><col><col><col>
-          </colgroup>
-          <thead>
-            <tr class="bg-gray-100">
-              <th>Offset</th>
-              <th>寄存器名</th>
-              <th>Bit范围</th>
-              <th>字段名</th>
-              <th>RW</th>
-              <th>Reset</th>
-              <th>描述</th>
-            </tr>
-          </thead>
-          <tbody id="tableBody"></tbody>
-        </table>
-      </div>
-    </div>
+    <div id="status" class="mt-2 text-xs text-gray-500 font-medium">等待上传文件...</div>
   </div>
 
-  <script>
-    const STORAGE_KEY = 'registerFieldsData_width_checked';
-    let currentValues = {};
-    let originalDefaults = {};
-    let declaredWidths = {};   // 新增：每个offset声明的宽度
-    let currentSearchQuery = '';
+  <div class="card">
+    <table id="resultTable">
+      <thead>
+        <tr>
+          <th width="120">Offset</th>
+          <th width="200">寄存器名 / 字段</th>
+          <th width="100">位范围</th>
+          <th width="60">RW</th>
+          <th width="120">复位值</th>
+          <th>交互操作与描述</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr>
+          <td colspan="6" class="text-center py-20 text-gray-400">暂无数据，请先上传 Excel 文件</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
 
-    function parseReset(resetStr) {
-        if (!resetStr) return { value: 0n, width: 0 };
+<script>
+let allRows = [];
+let currentValues = {};
+let originalDefaults = {};
+let declaredWidths = {};
+let currentSearchQuery = '';
+const STORAGE_KEY = 'reg_analyzer_data_v2';
 
-        try {
-            const s = resetStr.toLowerCase().replace(/\s+/g, '');
+const HEADER_MAP = {
+  offset: ['offset', '偏移'],
+  regname: ['regname', '寄存器名', 'register name'],
+  width: ['width', '宽度', 'bitwidth'],
+  bit: ['bit', 'bitrange', '位域', 'bits', '位'],
+  fieldname: ['fieldname', '字段名', 'field'],
+  rw: ['rw', '属性', 'access', '读写'],
+  resetvalue: ['resetvalue', '复位值', 'reset value'],
+  description: ['description', '描述', 'desc', '说明']
+};
 
-            /* =========
-            1. hex：NhXXXX 或 N'hXXXX
-            ========= */
-            let parts = s.match(/(\d+)'?h([0-9a-f]+)/);
-            if (parts) {
-            return {
-                value: BigInt(`0x${parts[2]}`),
-                width: parseInt(parts[1], 10)
-            };
-            }
+// --- 解析逻辑 ---
+function findColumnIndex(sheet, row, keywords) {
+  const range = XLSX.utils.decode_range(sheet['!ref']);
+  const cols = [];
 
-            /* =========
-            2. bin：Nb0101 或 N'b0101
-            ========= */
-            parts = s.match(/(\d+)'?b([01]+)/);
-            if (parts) {
-            return {
-                value: BigInt(`0b${parts[2]}`),
-                width: parseInt(parts[1], 10)
-            };
-            }
+  // 1. 先把这一行的所有表头读出来，方便做两轮匹配
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const cell = sheet[XLSX.utils.encode_cell({c, r: row})];
+    if (cell?.v) {
+      // 预处理：转小写，去空格
+      cols.push({
+        idx: c,
+        val: cell.v.toString().trim().toLowerCase().replace(/[\s_]+/g, '')
+      });
+    }
+  }
 
-            return { value: 0n, width: 0 };
-        } catch {
-            return { value: 0n, width: 0 };
+  // 2. 第一轮：【完全精确匹配】优先
+  // 如果表头叫 "Description"，关键字也是 "description"，直接锁定，不给 "ShortDescription" 机会
+  for (let col of cols) {
+    if (keywords.some(kw => col.val === kw.toLowerCase())) {
+      return col.idx;
+    }
+  }
+
+  // 3. 第二轮：【模糊包含匹配】(带黑名单过滤)
+  // 如果没有精确匹配，再找包含关系的，但要排除包含 "short" 的列（针对 description）
+  for (let col of cols) {
+    const isMatch = keywords.some(kw => {
+      if (col.val.includes(kw.toLowerCase())) {
+        // --- 核心修复逻辑 ---
+        // 如果当前列名包含 "short" (例如 ShortDescription)，
+        // 且我们在找的是 "description" 或 "desc"，则判定为【假匹配】，跳过
+        if (col.val.includes('short') && (kw === 'description' || kw === 'desc')) {
+          return false;
         }
-    }
-
-    function parseBitRange(bitRange) {
-      if (!bitRange) return { msb: 0, lsb: 0 };
-      bitRange = bitRange.trim().replace(/[\[\]]/g, '');
-      if (bitRange.includes(':')) {
-        const [msb, lsb] = bitRange.split(':').map(Number);
-        return { msb: Math.max(0, msb), lsb: Math.max(0, lsb) };
+        return true;
       }
-      const bit = Number(bitRange);
-      return { msb: bit, lsb: bit };
-    }
+      return false;
+    });
+    
+    if (isMatch) return col.idx;
+  }
 
-    function parseExcel() {
-        const file = document.getElementById('fileInput').files[0];
-        if (!file) return alert('请先选择文件');
-        const reader = new FileReader();
-        reader.onload = e => {
-            try {
-            const data = new Uint8Array(e.target.result);
-            const wb = XLSX.read(data, { type: 'array' });
-            const ws = wb.Sheets[wb.SheetNames[0]];
-            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-            const fields = [];
-            let curOffset = "", curReg = "", curWidth = 0;
+  return -1;
+}
 
-            for (let i = 1; i < rows.length; i++) {
-                const r = rows[i];
-                if (r.length < 7) continue;
+function handleFileSelect(input) {
+  if (!input.files.length) return;
+  parseExcelFiles(input.files);
+}
 
-                const offset    = (r[0] || "").toString().trim();           // index 0
-                const regName   = (r[1] || "").toString().trim();           // index 1
-                const widthStr  = (r[2] || "").toString().trim();           // index 2 ← 寄存器宽度
-                const bitRange  = (r[3] || "").toString().trim();           // index 3
-                const fieldName = (r[4] || "").toString().trim();           // index 4
-                const rw        = (r[5] || "").toString().trim();           // index 5
-                const reset     = (r[6] || "").toString().trim();           // index 6
-                const desc      = (r[7] || "").toString().trim();           // index 7
+function parseExcelFiles(files) {
+  allRows = [];
+  let processed = 0;
 
-                if (offset && /^0x/i.test(offset)) {
-                curOffset = offset;
-                curReg = regName || "未知寄存器";
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
 
-                // 从第三列读取宽度（只在寄存器首行有值）
-                if (widthStr && /^\d+$/.test(widthStr)) {
-                    curWidth = parseInt(widthStr, 10);
-                    declaredWidths[curOffset] = curWidth;
-                } else {
-                    // 如果首行没有数字宽度，尝试从 reset 取（备用）
-                    const resetInfo = parseReset(reset);
-                    if (resetInfo.width > 0) {
-                    curWidth = resetInfo.width;
-                    declaredWidths[curOffset] = curWidth;
-                    }
-                }
-                }
+        // 获取 Base Address (B4)
+        const baseCell = ws['B4'];
+        let base = 0;
+        if (baseCell?.v) {
+          let baseStr = baseCell.v.toString().trim().replace(/[_ ]/g,'').toLowerCase();
+          if (!baseStr.startsWith('0x')) baseStr = '0x' + baseStr;
+          base = parseInt(baseStr.slice(2), 16) & 0xFFFF;
+        }
 
-                if (fieldName && fieldName.trim()) {
-                fields.push({
-                    offset: curOffset,
-                    reg_name: curReg,
-                    bit_range: bitRange,
-                    field_name: fieldName,
-                    rw,
-                    reset,
-                    description: desc.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
-                });
-                }
-            }
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        let headerRow = -1;
+        for (let r = 0; r < 20; r++) {
+          if (findColumnIndex(ws, r, HEADER_MAP.regname) !== -1) { headerRow = r; break; }
+        }
+        if (headerRow === -1) throw new Error("无法识别表头"+wb.SheetNames[0]);
 
-            if (!fields.length) {
-                document.getElementById('status').textContent = '未解析到任何有效字段';
-                return;
-            }
+        const col = {};
+        Object.keys(HEADER_MAP).forEach(k => col[k] = findColumnIndex(ws, headerRow, HEADER_MAP[k]));
 
-            const groups = {};
-            fields.forEach(f => {
-                if (!groups[f.offset]) groups[f.offset] = [];
-                groups[f.offset].push(f);
-            });
-
-            Object.keys(groups).forEach(off => {
-                const defVal = buildDefaultValue(groups[off]);
-                originalDefaults[off] = defVal;
-                currentValues[off] = defVal;
-                // 如果没有从表格读取到宽度，则用字段最大位推断
-                if (!declaredWidths[off]) {
-                declaredWidths[off] = getCoveredWidth(groups[off]);
-                }
-            });
-
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(fields));
-            const widthCount = Object.keys(declaredWidths).length;
-            document.getElementById('status').textContent = 
-                `成功解析 ${fields.length} 个字段，检测到 ${widthCount} 个寄存器宽度定义`;
-            displayFields(fields);
-            } catch (err) {
-            document.getElementById('status').textContent = '解析失败：' + err.message;
-            console.error(err);
-            }
+        const getVal = (c, r) => {
+          if (c < 0) return '';
+          const cell = ws[XLSX.utils.encode_cell({c, r})];
+          return cell ? String(cell.w || cell.v || '').trim() : '';
         };
-        reader.readAsArrayBuffer(file);
-    }
-    function getCoveredWidth(fields) {
-    let maxBit = 0;
-    fields.forEach(f => {
-        const { msb } = parseBitRange(f.bit_range);
-        if (msb + 1 > maxBit) maxBit = msb + 1;
-    });
-    return maxBit;
-    }
-    function buildDefaultValue(fields) {
-      let regValue = 0n;
-      fields.forEach(field => {
-        const { msb, lsb } = parseBitRange(field.bit_range);
-        const { value, width } = parseReset(field.reset);
-        if (width === (msb - lsb + 1)) {
-          regValue |= (value << BigInt(lsb));
-        }
-      });
-      return regValue;
-    }
 
-    function getCoveredWidth(fields) {
-      let maxBit = 0;
-      fields.forEach(f => {
-        const { msb } = parseBitRange(f.bit_range);
-        if (msb + 1 > maxBit) maxBit = msb + 1;
-      });
-      return maxBit;
-    }
+        let curOffset = 0, curReg = '', curWidth = '', curDesc = '';
 
-    function generateBinary(offset, fields, regValue, width) {
-      const bin = regValue.toString(2).padStart(width, '0');
-      const sorted = [...fields].sort((a,b) => parseBitRange(b.bit_range).msb - parseBitRange(a.bit_range).msb);
-      let html = '';
-      let colorIndex = 0;
-      sorted.forEach(field => {
-        const {msb, lsb} = parseBitRange(field.bit_range);
-        const isReserved = field.field_name.toLowerCase().includes('reserved') || field.field_name === 'Blank';
-        const fieldVal = (regValue >> BigInt(lsb)) & ((1n << BigInt(msb - lsb + 1)) - 1n);
-        const hexPad = Math.ceil((msb-lsb+1)/4);
-        const hex = '0x' + fieldVal.toString(16).toUpperCase().padStart(hexPad, '0');
-        const tooltip = `${field.field_name}\n当前值: ${hex}\n${field.description || '无描述'}`;
-        const colorClass = isReserved ? 'bit-reserved' : `field-color-${colorIndex % 10}`;
-        html += `<span class="bit-field ${colorClass}" data-tooltip="${tooltip.replace(/"/g,'&quot;')}">`;
-        for (let bit = msb; bit >= lsb; bit--) {
-          html += `<span class="bit-single" data-offset="${offset}" data-bit="${bit}"><span class="bit-value">${bin[width - 1 - bit]}</span><span class="bit-num">${bit}</span></span>`;
-        }
-        html += '</span>';
-        if (!isReserved) colorIndex++;
-      });
-      return html;
-    }
-
-    document.getElementById('tableBody').addEventListener('click', e => {
-      const target = e.target.closest('.bit-single');
-      if (target) {
-        const offset = target.dataset.offset;
-        const bit = parseInt(target.dataset.bit);
-        if (offset && !isNaN(bit)) {
-          toggleBit(offset, bit);
-        }
-      }
-    });
-
-    function toggleBit(offset, bit) {
-      if (currentValues[offset] === undefined) return;
-      currentValues[offset] ^= (1n << BigInt(bit));
-      const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-      const filtered = currentSearchQuery ? allData.filter(item => 
-        Object.values(item).some(v => String(v).toLowerCase().includes(currentSearchQuery))) : allData;
-      displayFields(filtered);
-    }
-
-    function resetToOriginalDefault(offset) {
-      if (originalDefaults[offset] === undefined) return;
-      currentValues[offset] = originalDefaults[offset];
-      const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-      const filtered = currentSearchQuery ? allData.filter(item => 
-        Object.values(item).some(v => String(v).toLowerCase().includes(currentSearchQuery))) : allData;
-      displayFields(filtered);
-    }
-
-    async function copyHex(offset) {
-      const val = currentValues[offset];
-      const declared = declaredWidths[offset];
-      const pad = declared ? Math.ceil(declared / 4) : 8;
-      const hex = '0x' + val.toString(16).toUpperCase().padStart(pad, '0');
-      try {
-        await navigator.clipboard.writeText(hex);
-        alert(`已复制：${hex}`);
-      } catch {
-        alert(`复制失败，请手动复制：${hex}`);
-      }
-    }
-
-    async function generateCode(offset) {
-      const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-      const fields = allData.filter(item => item.offset === offset);
-      if (!fields.length) return alert('未找到该寄存器的字段数据');
-
-      const regValue = currentValues[offset] ?? originalDefaults[offset] ?? 0n;
-      const width = declaredWidths[offset] || getCoveredWidth(fields);
-      
-      // 地址 >> 2 （假设是32位字地址）
-      const addr = offset.startsWith('0x') ? BigInt(offset) >> 2n : BigInt(`0x${offset}`) >> 2n;
-      const addrHex = '0x' + addr.toString(16).toUpperCase();
-      
-      // 寄存器值 hex（按实际宽度填充）
-      const valHex = '0x' + regValue.toString(16).toUpperCase().padStart(Math.ceil(width / 4), '0');
-
-      // 排序字段：从高位到低位
-      const sortedFields = [...fields]
-        .filter(f => {
-          const name = f.field_name.toLowerCase();
-          return !name.includes('reserved') && name !== 'blank' && name.trim() !== '';
-        })
-        .sort((a, b) => parseBitRange(b.bit_range).msb - parseBitRange(a.bit_range).msb);
-
-      // 生成注释内容
-      let commentParts = [];
-      sortedFields.forEach(field => {
-        const { msb, lsb } = parseBitRange(field.bit_range);
-        const fieldWidth = msb - lsb + 1;
-        const fieldVal = (regValue >> BigInt(lsb)) & ((1n << BigInt(fieldWidth)) - 1n);
-        
-        // 值显示：如果 ≤4位用二进制，否则用十六进制
-        let valStr;
-        if (fieldWidth <= 4) {
-          valStr = fieldVal.toString(2).padStart(fieldWidth, '0');
-        } else {
-          const pad = Math.ceil(fieldWidth / 4);
-          valStr = '0x' + fieldVal.toString(16).toUpperCase().padStart(pad, '0');
-        }
-
-        const fieldDisplay = `${field.field_name}[${msb}:${lsb}] ${valStr}`;
-        commentParts.push(fieldDisplay);
-      });
-
-      const comment = commentParts.length > 0 
-        ? '// ' + commentParts.join('  ')
-        : '// (无有效可写字段或全部为reserved)';
-
-      const codeLine = `adi.write(${addrHex}, ${valHex}); ${comment}`;
-
-      try {
-        await navigator.clipboard.writeText(codeLine);
-        alert(`已复制到剪贴板：\n\n${codeLine}`);
-      } catch (err) {
-        alert(`复制失败，请手动复制：\n\n${codeLine}`);
-        console.error(err);
-      }
-    }
-
-    function updateHex(offset, newHexInput) {
-      try {
-        let newValStr = newHexInput.trim().toLowerCase();
-        if (newValStr.startsWith('0x')) newValStr = newValStr.slice(2);
-        if (!/^[0-9a-f]+$/.test(newValStr)) throw new Error('无效的十六进制');
-
-        const newVal = BigInt(`0x${newValStr}`);
-        const width = declaredWidths[offset] || 32; // 默认32位
-        const maxVal = (1n << BigInt(width)) - 1n;
-        if (newVal > maxVal) throw new Error(`值超过宽度限制（最大 ${maxVal.toString(16).toUpperCase()}）`);
-
-        currentValues[offset] = newVal;
-
-        const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-        const filtered = currentSearchQuery ? allData.filter(item => 
-          Object.values(item).some(v => String(v).toLowerCase().includes(currentSearchQuery))) : allData;
-        displayFields(filtered);
-      } catch (err) {
-        alert(`更新失败：${err.message}`);
-      }
-    }
-
-    function displayFields(data) {
-      const tbody = document.getElementById('tableBody');
-      tbody.innerHTML = '';
-      const groups = data.reduce((acc, item) => {
-        if (!acc[item.offset]) acc[item.offset] = [];
-        acc[item.offset].push(item);
-        return acc;
-      }, {});
-
-      Object.entries(groups).forEach(([offset, origFields]) => {
-        // 计算实际覆盖宽度
-        const coveredWidth = getCoveredWidth(origFields);
-
-        // 声明宽度（如果有）
-        const declaredWidth = declaredWidths[offset] || coveredWidth;
-        const isOverflow = coveredWidth > declaredWidth;
-        const hasGap = coveredWidth < declaredWidth;
-
-        let width = Math.max(coveredWidth, declaredWidth); // 显示时用较大的，防止截断
-
-        let fields = [...origFields];
-        let bitsCovered = new Array(width).fill(false);
-        let hasOverlap = false;
-
-        fields.forEach(f => {
-          const { msb, lsb } = parseBitRange(f.bit_range);
-          for (let b = lsb; b <= msb; b++) {
-            if (bitsCovered[b]) hasOverlap = true;
-            bitsCovered[b] = true;
+        for (let r = headerRow + 1; r <= range.e.r; r++) {
+          const offsetStr = getVal(col.offset, r);
+          if (offsetStr && /^0x[0-9a-f]+$/i.test(offsetStr)) {
+            curOffset = parseInt(offsetStr.slice(2), 16);
+            curReg = getVal(col.regname, r) || curReg;
+            curWidth = getVal(col.width, r) || curWidth;
+            curDesc = getVal(col.description, r) || curDesc;
           }
-        });
 
-        let gapRanges = [];
-        let start = -1;
-        for (let b = 0; b < width; b++) {
-          if (!bitsCovered[b]) {
-            if (start === -1) start = b;
-          } else if (start !== -1) {
-            gapRanges.push({ lsb: start, msb: b-1 });
-            start = -1;
+          const bit = getVal(col.bit, r);
+          const fname = getVal(col.fieldname, r);
+
+          if (bit || fname) {
+            const finalAddr = base + curOffset;
+            allRows.push({
+              offset: '0x' + finalAddr.toString(16).toUpperCase().padStart(4,'0'),
+              regName: curReg,
+              width: curWidth,
+              bit,
+              fieldName: fname,
+              rw: getVal(col.rw, r),
+              resetVal: getVal(col.resetvalue, r),
+              description: [curDesc, getVal(col.description, r)].filter(Boolean).join(' ').trim(),
+              rawOffsetNum: finalAddr
+            });
           }
         }
-        if (start !== -1) gapRanges.push({ lsb: start, msb: width-1 });
 
-        let pseudoFields = [];
-        gapRanges.forEach(gap => {
-          const w = gap.msb - gap.lsb + 1;
-          pseudoFields.push({
-            offset, reg_name: fields[0].reg_name,
-            bit_range: `[${gap.msb}:${gap.lsb}]`,
-            field_name: 'Blank',
-            rw: '-', reset: `${w}'h0`,
-            description: '未定义位，自动补0'
-          });
-        });
-
-        fields = [...fields, ...pseudoFields].sort((a,b) => parseBitRange(b.bit_range).msb - parseBitRange(a.bit_range).msb);
-
-        const regValue = currentValues[offset] ?? originalDefaults[offset] ?? 0n;
-        const pad = Math.ceil(width/4);
-        const hex = regValue.toString(16).toUpperCase().padStart(pad, '0'); // 不带0x，便于编辑
-
-        const header = document.createElement('tr');
-        header.className = 'group-header';
-        const statusClass = isOverflow || hasOverlap ? 'text-red-600 font-bold' : (hasGap ? 'text-yellow-600' : '');
-        header.innerHTML = `
-          <td class="${statusClass}">${offset} ${isOverflow ? '(溢出!)' : ''}</td>
-          <td colspan="2">${fields[0].reg_name}</td>
-          <td colspan="2">
-            <div class="value-row">
-              当前值: 0x<input class="hex-input" type="text" value="${hex}" data-offset="${offset}" />
-              <span class="btn copy-btn" onclick="copyHex('${offset}')">复制Hex</span>
-              <span class="btn generate-btn" onclick="generateCode('${offset}')">生成代码</span>
-              <span class="btn reset-btn" onclick="resetToOriginalDefault('${offset}')">恢复默认</span>
-            </div>
-          </td>
-          <td colspan="2">
-            <div class="binary-container-wrapper">
-              <div class="binary-container">${generateBinary(offset, fields, regValue, width)}</div>
-            </div>
-          </td>
-        `;
-        tbody.appendChild(header);
-
-        let warnings = [];
-        if (isOverflow) warnings.push(`错误：字段溢出！实际覆盖 ${coveredWidth} 位，声明宽度 ${declaredWidth} 位`);
-        if (hasGap) warnings.push(`警告：存在位缺口（${declaredWidth - coveredWidth}位），已补Blank`);
-        if (hasOverlap) warnings.push(`错误：存在位重叠！`);
-        if (warnings.length > 0) {
-          const warnTr = document.createElement('tr');
-          warnTr.innerHTML = `<td colspan="7" class="text-red-600 font-bold">${warnings.join('　')}</td>`;
-          tbody.appendChild(warnTr);
+        if (++processed === files.length) {
+          processAndDisplay();
+          document.getElementById('exportBtn').classList.remove('hidden');
+          document.getElementById('resetAllBtn').classList.remove('hidden');
+          document.getElementById('genAllCodeBtn').classList.remove('hidden');
         }
+      } catch (err) {
+        alert("解析失败: " + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
 
-        fields.forEach(f => {
-          const tr = document.createElement('tr');
-          const isBlank = f.field_name === 'Blank';
-          const rowClass = isOverflow || hasOverlap ? 'text-red-600' : (isBlank ? 'text-red-600' : '');
-          tr.className = rowClass;
-          tr.innerHTML = `
-            <td></td>
-            <td></td>
-            <td class="font-mono">${f.bit_range || '-'}</td>
-            <td>${f.field_name}</td>
-            <td class="font-mono uppercase">${f.rw || '-'}</td>
-            <td class="font-mono">${f.reset || '-'}</td>
-            <td class="description ${isBlank?'text-red-600':''}">${f.description || '-'}</td>
-          `;
-          tbody.appendChild(tr);
-        });
-      });
+// --- 核心业务逻辑 ---
 
-      // 添加 hex input 变更监听
-      document.querySelectorAll('.hex-input').forEach(input => {
-        input.addEventListener('change', e => {
-          const offset = e.target.dataset.offset;
-          const newHex = e.target.value;
-          updateHex(offset, newHex);
-        });
-      });
-    }
+function processAndDisplay() {
+  const fields = allRows.map(r => ({
+    offset: r.offset,
+    reg_name: r.regName,
+    bit_range: r.bit,
+    field_name: r.fieldName,
+    rw: r.rw,
+    reset: r.resetVal,
+    description: r.description
+  }));
 
-    document.getElementById('searchInput').addEventListener('input', function() {
-      currentSearchQuery = this.value.trim().toLowerCase();
-      const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-      const filtered = currentSearchQuery
-        ? allData.filter(item => Object.values(item).some(v => String(v).toLowerCase().includes(currentSearchQuery)))
-        : allData;
-      displayFields(filtered);
-    });
+  const groups = {};
+  fields.forEach(f => {
+    if (!groups[f.offset]) groups[f.offset] = [];
+    groups[f.offset].push(f);
+  });
 
-    function clearData() {
-      if (!confirm('确定清空所有数据？')) return;
-      localStorage.removeItem(STORAGE_KEY);
-      currentValues = {};
-      originalDefaults = {};
-      declaredWidths = {};
-      currentSearchQuery = '';
-      document.getElementById('tableBody').innerHTML = '';
-      document.getElementById('searchInput').value = '';
-      document.getElementById('status').textContent = '数据已清空';
-    }
+  Object.keys(groups).forEach(off => {
+    // 提取宽度
+    const firstWithWidth = allRows.find(r => r.offset === off && /^\d+$/.test(r.width));
+    declaredWidths[off] = firstWithWidth ? parseInt(firstWithWidth.width) : getCoveredWidth(groups[off]);
+    
+    originalDefaults[off] = buildDefaultValue(groups[off]);
+    currentValues[off] = originalDefaults[off];
+  });
 
-    window.addEventListener('load', () => {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-      if (saved.length) {
-        const groups = saved.reduce((acc, item) => {
-          if (!acc[item.offset]) acc[item.offset] = [];
-          acc[item.offset].push(item);
-          return acc;
-        }, {});
-        Object.keys(groups).forEach(off => {
-          originalDefaults[off] = buildDefaultValue(groups[off]);
-          currentValues[off] = originalDefaults[off];
-        });
-        displayFields(saved);
-        document.getElementById('status').textContent = `已加载 ${saved.length} 个字段`;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(fields));
+  document.getElementById('status').textContent = `已加载 ${Object.keys(groups).length} 个寄存器`;
+  refreshUI();
+}
+
+function parseBitRange(br) {
+  if (!br) return { msb: 0, lsb: 0 };
+  const parts = br.replace(/[\[\]]/g, '').split(':').map(Number);
+  return parts.length > 1 ? { msb: parts[0], lsb: parts[1] } : { msb: parts[0], lsb: parts[0] };
+}
+
+function parseReset(str) {
+  if (!str) return { value: 0n, width: 0 };
+  const m = str.toLowerCase().match(/(\d+)'?([hb])([0-9a-f]+)/);
+  if (!m) return { value: 0n, width: 0 };
+  return { value: BigInt(m[2] === 'h' ? `0x${m[3]}` : `0b${m[3]}`), width: parseInt(m[1]) };
+}
+
+function getCoveredWidth(fields) {
+  let max = 0;
+  fields.forEach(f => { max = Math.max(max, parseBitRange(f.bit_range).msb + 1); });
+  return Math.max(max, 32);
+}
+
+function buildDefaultValue(fields) {
+  let val = 0n;
+  fields.forEach(f => {
+    const { lsb } = parseBitRange(f.bit_range);
+    const { value } = parseReset(f.reset);
+    val |= (value << BigInt(lsb));
+  });
+  return val;
+}
+
+// --- 新增：复位功能 ---
+
+function resetSingle(offset) {
+  currentValues[offset] = originalDefaults[offset];
+  // 简单的视觉反馈
+  refreshUI();
+}
+
+function resetAll() {
+  if (!confirm("确定要将所有寄存器恢复为初始默认值吗？")) return;
+  Object.keys(originalDefaults).forEach(off => {
+    currentValues[off] = originalDefaults[off];
+  });
+  refreshUI();
+}
+
+// --- UI 渲染与懒加载 ---
+
+let groupedData = [];
+let searchResults = [];
+let displayedIndex = 0;
+const batchSize = 10;
+let isLoading = false;
+
+function prepareGroupedData(query = '') {
+  const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  const lowerQuery = query.toLowerCase();
+
+  // 新功能：检查是否是多个地址搜索
+  const parts = query.split('&&').map(p => p.trim().toUpperCase());
+  const isAddressSearch = parts.length > 1 && parts.every(p => /^0X[0-9A-F]+$/.test(p));
+
+  if (isAddressSearch) {
+    // 地址搜索模式
+    const targetOffsets = new Set(parts);
+    const matchedGroups = {};
+    const grouped = data.reduce((acc, item) => {
+      if (!acc[item.offset]) acc[item.offset] = [];
+      acc[item.offset].push(item);
+      return acc;
+    }, {});
+    Object.entries(grouped).forEach(([offset, fields]) => {
+      if (targetOffsets.has(offset.toUpperCase())) {
+        matchedGroups[offset] = fields;
       }
     });
-    let activeTooltip = null;
+    return Object.entries(matchedGroups).sort((a, b) => {
+      const numA = parseInt(a[0].replace('0x', ''), 16);
+      const numB = parseInt(b[0].replace('0x', ''), 16);
+      return numA - numB;
+    });
+  } else {
+    // 原有搜索逻辑
+    const filtered = lowerQuery 
+      ? data.filter(item => Object.values(item).some(v => String(v).toLowerCase().includes(lowerQuery)))
+      : data;
 
-/* 只监听 binary 区域，而不是整个 document */
-    document.getElementById('tableBody').addEventListener('click', e => {
-      const field = e.target.closest('.bit-field[data-tooltip]');
-      if (!field) return;
+    const grouped = filtered.reduce((acc, item) => {
+      if (!acc[item.offset]) acc[item.offset] = [];
+      acc[item.offset].push(item);
+      return acc;
+    }, {});
 
-      e.stopPropagation();   // 只阻止冒泡，不吞掉其他事件
-
-      if (activeTooltip && activeTooltip !== field) {
-        activeTooltip.classList.remove('force-tooltip');
+    // 按寄存器分组，如果任何字段匹配，则包括整个组
+    const matchedGroups = {};
+    Object.entries(grouped).forEach(([offset, fields]) => {
+      if (lowerQuery) {
+        const matches = fields.some(f => 
+          f.reg_name.toLowerCase().includes(lowerQuery) ||
+          f.field_name.toLowerCase().includes(lowerQuery) ||
+          f.bit_range.toLowerCase().includes(lowerQuery) ||
+          f.description.toLowerCase().includes(lowerQuery) ||
+          f.offset.toLowerCase().includes(lowerQuery)
+        );
+        if (matches) matchedGroups[offset] = fields;
+      } else {
+        matchedGroups[offset] = fields;
       }
-
-      field.classList.toggle('force-tooltip');
-      activeTooltip = field.classList.contains('force-tooltip') ? field : null;
     });
 
-    /* 点空白关闭 tooltip */
-    document.addEventListener('click', () => {
-      if (activeTooltip) {
-        activeTooltip.classList.remove('force-tooltip');
-        activeTooltip = null;
-      }
+    // 排序按offset
+    return Object.entries(matchedGroups).sort((a, b) => {
+      const numA = parseInt(a[0].replace('0x', ''), 16);
+      const numB = parseInt(b[0].replace('0x', ''), 16);
+      return numA - numB;
     });
+  }
+}
 
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then(() => console.log('PWA Service Worker registered'))
-          .catch(err => console.error('SW register failed', err));
-      });
+function renderBatch() {
+  if (isLoading) return;
+  isLoading = true;
+
+  const tbody = document.getElementById('tableBody');
+  const groupsToRender = (currentSearchQuery ? searchResults : groupedData).slice(displayedIndex, displayedIndex + batchSize);
+
+  groupsToRender.forEach(([offset, fields]) => {
+    const width = declaredWidths[offset] || 32;
+    const regValue = currentValues[offset] ?? 0n;
+    const hexVal = regValue.toString(16).toUpperCase().padStart(Math.ceil(width/4), '0');
+    
+    // 判断当前值是否等于默认值，用于高亮修改状态
+    const isModified = regValue !== (originalDefaults[offset] ?? 0n);
+    const modifiedClass = isModified ? 'border-l-4 border-l-orange-400' : '';
+    // 在 renderBatch 中定义 hTr 之前
+    const overlapIndices = checkOverlap(fields);
+    const hasAnyOverlap = overlapIndices.size > 0;
+    const overlapWarning = hasAnyOverlap ? '<span class="ml-2 px-2 py-0.5 bg-red-500 text-white text-[10px] rounded">重叠警告</span>' : '';
+    // 寄存器行
+    const hTr = document.createElement('tr');
+    hTr.className = `group-header ${modifiedClass}`;
+    hTr.innerHTML = `
+      <td class="font-bold text-blue-700">${offset}</td>
+      <td colspan="2" class="font-bold">${fields[0].reg_name}${overlapWarning}</td>
+      <td colspan="3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div class="flex items-center gap-1">
+              <span class="text-xs text-gray-400">0x</span>
+              <input class="hex-input ${isModified ? 'text-orange-600 bg-orange-50 border-orange-200' : ''}" 
+                     type="text" value="${hexVal}" onchange="updateHex('${offset}', this.value)">
+            </div>
+            <div class="binary-container">${renderBinary(offset, fields, regValue, width, currentSearchQuery)}</div>
+          </div>
+          
+          <div class="flex flex-col gap-1 items-end pl-2">
+            <button onclick="generateOneCode('${offset}')" class="action-btn text-blue-600">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              代码
+            </button>
+            <button onclick="resetSingle('${offset}')" class="action-btn text-orange-600" title="恢复默认值">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+              复位
+            </button>
+          </div>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(hTr);
+
+    // 字段行
+    // 在 renderBatch 函数内部，找到 fields.forEach 循环部分并修改如下：
+    fields.forEach((f, idx) => {
+    // --- 新增：重叠检测 ---
+    const overlapIndices = checkOverlap(fields);
+    const isOverlapping = overlapIndices.has(idx);
+    // --------------------
+
+    const tr = document.createElement('tr');
+    // 如果重叠，背景变红
+    tr.className = isOverlapping ? 'bg-red-50' : (isModified ? 'bg-orange-50/30' : '');
+
+    const fieldNameHtml = highlightText(f.field_name, currentSearchQuery);
+    const bitRangeHtml = highlightText(f.bit_range, currentSearchQuery);
+    const descHtml = highlightText(f.description || '-', currentSearchQuery);
+
+    // 如果重叠，在名称前加上 ⚠️ 警告图标，并加粗红色
+    const errorIcon = isOverlapping ? '<span class="text-red-600 font-bold" title="检测到地址空间重叠！">⚠️ </span>' : '';
+    const fieldStyle = isOverlapping ? 'text-red-600 font-bold' : 'text-gray-600';
+
+    tr.innerHTML = `
+        <td></td>
+        <td class="${fieldStyle} pl-4">└ ${errorIcon}${fieldNameHtml}</td>
+        <td class="font-mono text-xs ${isOverlapping ? 'text-red-500' : 'text-gray-500'}">${bitRangeHtml}</td>
+        <td class="text-xs">${f.rw}</td>
+        <td class="font-mono text-xs">${f.reset}</td>
+        <td class="text-gray-500 text-xs italic">${descHtml}</td>
+    `;
+    tbody.appendChild(tr);
+    });
+  });
+
+  displayedIndex += groupsToRender.length;
+  isLoading = false;
+}
+
+function highlightText(text, query) {
+  if (!query) return text;
+  const lowerText = text.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  if (!lowerText.includes(lowerQuery)) return text;
+
+  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+  return parts.map(part => 
+    part.toLowerCase() === lowerQuery ? `<span class="highlight-text">${part}</span>` : part
+  ).join('');
+}
+
+function renderBinary(offset, fields, val, width, query) {
+  let html = '';
+  const sorted = [...fields].sort((a,b) => parseBitRange(b.bit_range).msb - parseBitRange(a.bit_range).msb);
+  const lowerQuery = query.toLowerCase();
+  
+  sorted.forEach((f, i) => {
+    const { msb, lsb } = parseBitRange(f.bit_range);
+    const bits = msb - lsb + 1;
+    const fieldVal = (val >> BigInt(lsb)) & ((1n << BigInt(bits)) - 1n);
+    const isRsvd = f.field_name.toLowerCase().includes('reserved');
+    
+    // 检查是否匹配搜索
+    const isMatch = lowerQuery && (
+      f.field_name.toLowerCase().includes(lowerQuery) ||
+      f.bit_range.toLowerCase().includes(lowerQuery)
+    );
+    const highlightClass = isMatch ? 'highlight-field' : '';
+
+    html += `<div class="bit-field field-color-${isRsvd ? 'reserved' : i % 6} ${highlightClass}" data-tooltip="${f.field_name}\n值: 0x${fieldVal.toString(16).toUpperCase()}">`;
+    for(let b=msb; b>=lsb; b--) {
+      const bitSet = (val & (1n << BigInt(b))) ? '1' : '0';
+      html += `<div class="bit-single ${isRsvd?'bit-reserved':''}" onclick="toggleBit('${offset}', ${b})">
+                <span class="font-bold">${bitSet}</span>
+                <span class="bit-num">${b}</span>
+              </div>`;
     }
-  </script>
+    html += `</div>`;
+  });
+  return html;
+}
+
+function checkScroll() {
+  const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+  if (scrollTop + clientHeight >= scrollHeight - 200) { // 接近底部200px
+    renderBatch();
+  }
+}
+
+function refreshUI() {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  displayedIndex = 0;
+
+  if (currentSearchQuery) {
+    searchResults = prepareGroupedData(currentSearchQuery);
+  } else {
+    groupedData = prepareGroupedData();
+  }
+
+  renderBatch();
+  // 移除旧监听并添加新滚动监听
+  window.removeEventListener('scroll', checkScroll);
+  window.addEventListener('scroll', checkScroll);
+}
+
+// --- 交互功能 ---
+
+function updateHex(offset, hex) {
+  try {
+    currentValues[offset] = BigInt('0x' + hex.replace(/^0x/, ''));
+    refreshUI();
+  } catch(e) { alert("无效的十六进制值"); }
+}
+
+function toggleBit(offset, bit) {
+  currentValues[offset] ^= (1n << BigInt(bit));
+  refreshUI();
+}
+// 检测位域是否存在重叠
+function checkOverlap(fields) {
+  const occupiedBits = new Set();
+  const overlappingFields = new Set();
+
+  fields.forEach((f, index) => {
+    const { msb, lsb } = parseBitRange(f.bit_range);
+    for (let i = lsb; i <= msb; i++) {
+      if (occupiedBits.has(i)) {
+        overlappingFields.add(index); // 标记当前字段重叠
+        // 同时找出之前是谁占用了这个位（可选，此处简化为标记当前字段）
+      }
+      occupiedBits.add(i);
+    }
+  });
+  return overlappingFields;
+}
+async function copyCode(offset) {
+  const val = currentValues[offset] || 0n;
+  const fields = allRows.filter(item => item.offset === offset);
+
+  const commentParts = fields
+    .filter(f => {
+      const name = (f.fieldName || '').toLowerCase();
+      return !name.includes('reserved') && name !== 'blank' && name.trim() !== '';
+    })
+    .sort((a, b) => {
+      const msbA = parseBitRange(a.bit).msb;
+      const msbB = parseBitRange(b.bit).msb;
+      return msbB - msbA;
+    })
+    .map(f => {
+      const { msb, lsb } = parseBitRange(f.bit);
+      const width = msb - lsb + 1;
+      const mask = (1n << BigInt(width)) - 1n;
+      const fieldVal = (val >> BigInt(lsb)) & mask;
+      return `${f.fieldName}[${msb}:${lsb}]=0x${fieldVal.toString(16).toUpperCase()}`;
+    });
+
+  const mainHex = val.toString(16).toUpperCase().padStart(8, '0');
+  const comment = commentParts.length > 0 ? ` // ${commentParts.join(', ')}` : '';
+  const code = `write_reg(${offset}<<2, 0x${mainHex});${comment}`;
+  return code;
+}
+
+async function generateOneCode(offset) {
+  const displayedGroups = currentSearchQuery ? searchResults : groupedData;
+  if (displayedGroups.length === 0) {
+    alert("没有显示的寄存器");
+    return;
+  }
+
+
+  const allCode = await copyCode(offset);
+  try {
+    await navigator.clipboard.writeText(allCode);
+    alert(`已复制到剪贴板:\n\n${allCode}`);
+  } catch (err) {
+    console.error('复制失败:', err);
+    alert("复制失败，请手动复制:\n\n" + allCode);
+  }
+}
+async function generateAllCode() {
+  const displayedGroups = currentSearchQuery ? searchResults : groupedData;
+  if (displayedGroups.length === 0) {
+    alert("没有显示的寄存器");
+    return;
+  }
+
+  const codes = [];
+  for (const [offset, fields] of displayedGroups) {
+    const code = await copyCode(offset);
+    codes.push(code);
+  }
+
+  const allCode = codes.join('\n');
+  try {
+    await navigator.clipboard.writeText(allCode);
+    alert(`已复制到剪贴板:\n\n${allCode}`);
+  } catch (err) {
+    console.error('复制失败:', err);
+    alert("复制失败，请手动复制:\n\n" + allCode);
+  }
+}
+
+function clearData() {
+  if(!confirm("确定清空？")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+}
+
+function exportToExcel() {
+  const data = allRows.map(r => ({
+    Offset: r.offset, RegName: r.regName, Bit: r.bit, Field: r.fieldName, RW: r.rw, Reset: r.resetVal, Desc: r.description
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "RegMap");
+  XLSX.writeFile(wb, "regMap_merged.xlsx");
+}
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  currentSearchQuery = e.target.value.trim();
+  refreshUI();
+});
+window.onload = () => {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    const data = JSON.parse(saved);
+    
+    // 新增：从缓存数据重建 allRows
+    allRows = data.map(d => ({
+      offset: d.offset,
+      regName: d.reg_name,
+      width: '',  // width 在缓存中未直接保存，但可在下面 groups 循环中从 declaredWidths 推导（或留空，因为 copyCode 不依赖它）
+      bit: d.bit_range,
+      fieldName: d.field_name,
+      rw: d.rw,
+      resetVal: d.reset,
+      description: d.description,
+      rawOffsetNum: parseInt(d.offset.slice(2), 16)  // 恢复数值型 offset
+    }));
+    
+    const groups = {};
+    data.forEach(f => {
+      if (!groups[f.offset]) groups[f.offset] = [];
+      groups[f.offset].push(f);
+    });
+    Object.keys(groups).forEach(off => {
+      originalDefaults[off] = buildDefaultValue(groups[off]);
+      declaredWidths[off] = getCoveredWidth(groups[off]);
+      currentValues[off] = originalDefaults[off];
+    });
+    document.getElementById('status').textContent = "从本地缓存加载了数据";
+    document.getElementById('exportBtn').classList.remove('hidden');
+    document.getElementById('resetAllBtn').classList.remove('hidden');
+    document.getElementById('genAllCodeBtn').classList.remove('hidden');
+    refreshUI();
+  }
+};
+</script>
 </body>
 </html>
