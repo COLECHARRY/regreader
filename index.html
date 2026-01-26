@@ -99,26 +99,43 @@
     .bit-num { font-size: 0.55rem; color: #64748b; }
     .bit-reserved { background: #475569 !important; opacity: 0.6; color: white; }
 
-    /* Tooltip */
-    .bit-field[data-tooltip]:hover::after {
-      content: attr(data-tooltip); position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%);
-      background: #1e293b; color: white; padding: 8px 12px; border-radius: 6px;
-      font-size: 0.75rem; white-space: pre-line; z-index: 100; width: 200px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
-    }
+    /* Tooltip *//* Tooltip 修复版：确保不被 overflow:hidden 裁剪 */
+.bit-field[data-tooltip] {
+  position: relative;          /* 保持 relative 用于定位 */
+  cursor: default;
+}
 
-    .hidden { display: none !important; }
-    
-    /* 工具提示按钮 */
-    .action-btn {
-      display: flex; align-items: center; gap: 4px; padding: 4px 8px;
-      border-radius: 4px; font-size: 0.75rem; transition: background 0.2s;
-    }
-    .action-btn:hover { background: #e2e8f0; }
+.bit-field[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;      /* 关键：用 absolute 脱离文档流 */
+  bottom: 130%;                /* 向上弹出，距离更远一点避免遮挡 */
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  white-space: pre-line;
+  z-index: 200;            /* 提高层级，确保在最上层 */
+  width: max-content;          /* 自适应宽度 */
+  min-width: 180px;
+  max-width: 300px;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4);
+  pointer-events: none;        /* 防止 tooltip 挡住鼠标事件 */
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* hover 时显示 */
+.bit-field[data-tooltip]:hover::after {
+  opacity: 1;
+}
 
     /* 新增高亮样式 */
     /* 原有高亮（作为备选） */
 .highlight-text {
-  background-color: #fef08a; /* 淡黄 */
+  background-color: #e90f0f; /* 淡黄 */
   padding: 1px 4px;
   border-radius: 3px;
 }
@@ -129,7 +146,7 @@
   display: inline-block;
   font-weight: 700;                    /* 加粗 */
   font-size: 0.95em;                   /* 稍微缩小（可调为 0.9em 更明显） */
-  color: #facc15 !important;           /* 主体对比色：深金黄/琥珀 */
+  color: #f0660a !important;           /* 主体对比色：深金黄/琥珀 */
   letter-spacing: 0.3px;
   text-shadow: 
     0 0 3px rgba(254, 240, 138, 0.9),  /* 减弱内层光晕 */
@@ -143,31 +160,17 @@
 
 /* 粒子效果背景（字段块高亮） */
 .highlight-field {
+  overflow: visible !important;  /* 关键修复！允许子元素溢出 */
   position: relative;
-  overflow: hidden;
   border: 2px solid #fef08a !important;
   box-shadow: 
     0 0 10px #fef08a,
     0 0 20px #facc15,
     inset 0 0 15px rgba(254, 240, 138, 0.6);
   background: rgba(254, 240, 138, 0.15) !important;
-  animation: pulse-glow 4s infinite ease-in-out;
 }
 
-/* 粒子效果（使用伪元素实现简单粒子感） */
-.highlight-field::before,
-.highlight-field::after {
-  content: '';
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  background: #fef08a;
-  border-radius: 50%;
-  box-shadow: 0 0 10px #fef08a;
-  opacity: 0;
-  animation: particle-float 5s infinite;
-  pointer-events: none;
-}
+/* 粒子效果*/
 
 .highlight-field::before {
   top: 20%;
