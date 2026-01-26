@@ -116,8 +116,89 @@
     .action-btn:hover { background: #e2e8f0; }
 
     /* 新增高亮样式 */
-    .highlight-field { border: 2px solid #fef08a; box-shadow: 0 0 10px #fef08a; }
-    .highlight-text { background-color: #fef08a; }
+    /* 原有高亮（作为备选） */
+.highlight-text {
+  background-color: #fef08a; /* 淡黄 */
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* 新增：粒子效果荧光黄高亮（文字） */
+.highlight-text-glow {
+  position: relative;
+  display: inline-block;
+  font-weight: 700;                    /* 加粗 */
+  font-size: 0.95em;                   /* 稍微缩小（可调为 0.9em 更明显） */
+  color: #facc15 !important;           /* 主体对比色：深金黄/琥珀 */
+  letter-spacing: 0.3px;
+  text-shadow: 
+    0 0 3px rgba(254, 240, 138, 0.9),  /* 减弱内层光晕 */
+    0 0 6px rgba(254, 240, 138, 0.7),
+    0 0 10px rgba(251, 191, 36, 0.5);  /* 最外层用稍暗的黄色 */
+  animation: subtle-flicker 4s infinite alternate ease-in-out;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(254, 240, 138, 0.12); /* 极淡背景增强可读性 */
+}
+
+/* 粒子效果背景（字段块高亮） */
+.highlight-field {
+  position: relative;
+  overflow: hidden;
+  border: 2px solid #fef08a !important;
+  box-shadow: 
+    0 0 10px #fef08a,
+    0 0 20px #facc15,
+    inset 0 0 15px rgba(254, 240, 138, 0.6);
+  background: rgba(254, 240, 138, 0.15) !important;
+  animation: pulse-glow 4s infinite ease-in-out;
+}
+
+/* 粒子效果（使用伪元素实现简单粒子感） */
+.highlight-field::before,
+.highlight-field::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: #fef08a;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #fef08a;
+  opacity: 0;
+  animation: particle-float 5s infinite;
+  pointer-events: none;
+}
+
+.highlight-field::before {
+  top: 20%;
+  left: 30%;
+  animation-delay: 0s;
+}
+
+.highlight-field::after {
+  bottom: 25%;
+  right: 35%;
+  animation-delay: 2.5s;
+}
+
+/* 动画关键帧 */
+@keyframes neon-flicker {
+  0%, 100% { text-shadow: 0 0 4px #fef08a, 0 0 8px #fef08a, 0 0 12px #facc15; }
+  50%      { text-shadow: 0 0 8px #fef08a, 0 0 15px #facc15, 0 0 25px #eab308; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px #fef08a, 0 0 20px #facc15, inset 0 0 15px rgba(254, 240, 138, 0.6); }
+  50%      { box-shadow: 0 0 20px #fef08a, 0 0 35px #facc15, inset 0 0 25px rgba(254, 240, 138, 0.8); }
+}
+
+@keyframes particle-float {
+  0%   { transform: translate(0, 0);   opacity: 0; }
+  20%  { opacity: 0.9; }
+  50%  { transform: translate(30px, -30px); opacity: 0.7; }
+  80%  { opacity: 0.9; }
+  100% { transform: translate(60px, -60px); opacity: 0; }
+}
   </style>
 </head>
 <body>
@@ -415,70 +496,86 @@ let searchResults = [];
 let displayedIndex = 0;
 const batchSize = 10;
 let isLoading = false;
-
 function prepareGroupedData(query = '') {
   const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  const lowerQuery = query.toLowerCase();
+  const lowerQuery = query.toLowerCase().trim();
 
-  // 新功能：检查是否是多个地址搜索
+  // === 处理多地址精确搜索模式 ===
   const parts = query.split('&&').map(p => p.trim().toUpperCase());
   const isAddressSearch = parts.length > 1 && parts.every(p => /^0X[0-9A-F]+$/.test(p));
 
   if (isAddressSearch) {
-    // 地址搜索模式
     const targetOffsets = new Set(parts);
-    const matchedGroups = {};
     const grouped = data.reduce((acc, item) => {
       if (!acc[item.offset]) acc[item.offset] = [];
       acc[item.offset].push(item);
       return acc;
     }, {});
+
+    const matchedGroups = {};
     Object.entries(grouped).forEach(([offset, fields]) => {
       if (targetOffsets.has(offset.toUpperCase())) {
         matchedGroups[offset] = fields;
       }
     });
-    return Object.entries(matchedGroups).sort((a, b) => {
-      const numA = parseInt(a[0].replace('0x', ''), 16);
-      const numB = parseInt(b[0].replace('0x', ''), 16);
-      return numA - numB;
-    });
-  } else {
-    // 原有搜索逻辑
-    const filtered = lowerQuery 
-      ? data.filter(item => Object.values(item).some(v => String(v).toLowerCase().includes(lowerQuery)))
-      : data;
 
-    const grouped = filtered.reduce((acc, item) => {
-      if (!acc[item.offset]) acc[item.offset] = [];
-      acc[item.offset].push(item);
-      return acc;
-    }, {});
-
-    // 按寄存器分组，如果任何字段匹配，则包括整个组
-    const matchedGroups = {};
-    Object.entries(grouped).forEach(([offset, fields]) => {
-      if (lowerQuery) {
-        const matches = fields.some(f => 
-          f.reg_name.toLowerCase().includes(lowerQuery) ||
-          f.field_name.toLowerCase().includes(lowerQuery) ||
-          f.bit_range.toLowerCase().includes(lowerQuery) ||
-          f.description.toLowerCase().includes(lowerQuery) ||
-          f.offset.toLowerCase().includes(lowerQuery)
-        );
-        if (matches) matchedGroups[offset] = fields;
-      } else {
-        matchedGroups[offset] = fields;
-      }
-    });
-
-    // 排序按offset
     return Object.entries(matchedGroups).sort((a, b) => {
       const numA = parseInt(a[0].replace('0x', ''), 16);
       const numB = parseInt(b[0].replace('0x', ''), 16);
       return numA - numB;
     });
   }
+
+  // === 普通文本搜索模式：任一信息匹配 → 显示完整寄存器 ===
+  if (!lowerQuery) {
+    // 无搜索词 → 显示所有
+    const grouped = data.reduce((acc, item) => {
+      if (!acc[item.offset]) acc[item.offset] = [];
+      acc[item.offset].push(item);
+      return acc;
+    }, {});
+    return Object.entries(grouped).sort((a, b) => {
+      const numA = parseInt(a[0].replace('0x', ''), 16);
+      const numB = parseInt(b[0].replace('0x', ''), 16);
+      return numA - numB;
+    });
+  }
+
+  // 有搜索词 → 只要寄存器或任一字段的以下任一字段匹配，就完整显示该寄存器
+  const matchedGroups = {};
+  const grouped = data.reduce((acc, item) => {
+    if (!acc[item.offset]) acc[item.offset] = [];
+    acc[item.offset].push(item);
+    return acc;
+  }, {});
+
+  Object.entries(grouped).forEach(([offset, fields]) => {
+    // 检查寄存器名（取第一个字段的 reg_name 即可）
+    const regNameMatch = fields[0]?.reg_name?.toLowerCase().includes(lowerQuery);
+
+    // 检查任一字段的各种信息
+    const fieldMatch = fields.some(f => 
+      f.reg_name?.toLowerCase().includes(lowerQuery) ||
+      f.field_name?.toLowerCase().includes(lowerQuery) ||
+      f.bit_range?.toLowerCase().includes(lowerQuery) ||
+      f.rw?.toLowerCase().includes(lowerQuery) ||
+      f.reset?.toLowerCase().includes(lowerQuery) ||
+      f.description?.toLowerCase().includes(lowerQuery) ||
+      offset.toLowerCase().includes(lowerQuery)
+    );
+
+    // 只要任一匹配，就完整包含这个寄存器组
+    if (regNameMatch || fieldMatch) {
+      matchedGroups[offset] = fields;
+    }
+  });
+
+  // 按 offset 数值排序返回
+  return Object.entries(matchedGroups).sort((a, b) => {
+    const numA = parseInt(a[0].replace('0x', ''), 16);
+    const numB = parseInt(b[0].replace('0x', ''), 16);
+    return numA - numB;
+  });
 }
 
 function renderBatch() {
@@ -543,10 +640,12 @@ function renderBatch() {
     const tr = document.createElement('tr');
     // 如果重叠，背景变红
     tr.className = isOverlapping ? 'bg-red-50' : (isModified ? 'bg-orange-50/30' : '');
-
+// 在 renderBatch 的字段行部分
     const fieldNameHtml = highlightText(f.field_name, currentSearchQuery);
     const bitRangeHtml = highlightText(f.bit_range, currentSearchQuery);
-    const descHtml = highlightText(f.description || '-', currentSearchQuery);
+    const rwHtml     = highlightText(f.rw || '-', currentSearchQuery);
+    const resetHtml  = highlightText(f.reset || '-', currentSearchQuery);
+    const descHtml   = highlightText(f.description || '-', currentSearchQuery);
 
     // 如果重叠，在名称前加上 ⚠️ 警告图标，并加粗红色
     const errorIcon = isOverlapping ? '<span class="text-red-600 font-bold" title="检测到地址空间重叠！">⚠️ </span>' : '';
@@ -567,19 +666,20 @@ function renderBatch() {
   displayedIndex += groupsToRender.length;
   isLoading = false;
 }
-
 function highlightText(text, query) {
-  if (!query) return text;
+  if (!query || !text) return text;
+  
   const lowerText = text.toLowerCase();
   const lowerQuery = query.toLowerCase();
+  
   if (!lowerText.includes(lowerQuery)) return text;
 
-  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
-  return parts.map(part => 
-    part.toLowerCase() === lowerQuery ? `<span class="highlight-text">${part}</span>` : part
-  ).join('');
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  
+  return text.replace(regex, match => 
+    `<span class="highlight-text-glow">${match}</span>`
+  );
 }
-
 function renderBinary(offset, fields, val, width, query) {
   let html = '';
   const sorted = [...fields].sort((a,b) => parseBitRange(b.bit_range).msb - parseBitRange(a.bit_range).msb);
@@ -591,12 +691,16 @@ function renderBinary(offset, fields, val, width, query) {
     const fieldVal = (val >> BigInt(lsb)) & ((1n << BigInt(bits)) - 1n);
     const isRsvd = f.field_name.toLowerCase().includes('reserved');
     
-    // 检查是否匹配搜索
-    const isMatch = lowerQuery && (
-      f.field_name.toLowerCase().includes(lowerQuery) ||
-      f.bit_range.toLowerCase().includes(lowerQuery)
-    );
-    const highlightClass = isMatch ? 'highlight-field' : '';
+    // 判断该字段是否匹配搜索（用于高亮整个 field 块）// 
+  const isMatch = lowerQuery && (
+    f.field_name.toLowerCase().includes(lowerQuery) ||
+    f.bit_range.toLowerCase().includes(lowerQuery) ||
+    f.description.toLowerCase().includes(lowerQuery) ||
+    f.rw?.toLowerCase().includes(lowerQuery) ||
+    f.reset?.toLowerCase().includes(lowerQuery)
+  );
+
+  const highlightClass = isMatch ? 'highlight-field' : '';
 
     html += `<div class="bit-field field-color-${isRsvd ? 'reserved' : i % 6} ${highlightClass}" data-tooltip="${f.field_name}\n值: 0x${fieldVal.toString(16).toUpperCase()}">`;
     for(let b=msb; b>=lsb; b--) {
