@@ -498,62 +498,87 @@ let groupedData = [];
 let searchResults = [];
 let displayedIndex = 0;
 const batchSize = 10;
-let isLoading = false;function prepareGroupedData(query = '') {
+let isLoading = false;
+function prepareGroupedData(query = '') {
   const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  const lowerQuery = query.toLowerCase().trim();
+  const lowerQuery = query.trim();  // 不转小写，因为地址要区分大小写
 
-  // === 多地址精确搜索模式（保持不变） ===
-  const parts = query.split('&&').map(p => p.trim().toUpperCase());
-  const isAddressSearch = parts.length > 1 && parts.every(p => /^0X[0-9A-F]+$/.test(p));
+  // === 处理多地址精确搜索模式：用 && 分隔 ===
+  const parts = lowerQuery.split('&&').map(p => p.trim().toUpperCase());
+  const isMultiAddressSearch = parts.length > 1 && parts.every(p => /^0X[0-9A-F]+$/.test(p));
 
-  if (isAddressSearch) {
-    // ... 原有多地址逻辑不变 ...
-    // 返回完整组
-  }
-
-  // 无搜索词 → 显示所有完整寄存器
-  if (!lowerQuery) {
+  if (isMultiAddressSearch) {
+    const targetOffsets = new Set(parts);  // 使用 Set 便于查找
     const grouped = data.reduce((acc, item) => {
       if (!acc[item.offset]) acc[item.offset] = [];
       acc[item.offset].push(item);
       return acc;
     }, {});
-    return Object.entries(grouped).sort((a, b) => {
-      const numA = parseInt(a[0].replace('0x', ''), 16);
-      const numB = parseInt(b[0].replace('0x', ''), 16);
+
+    const matchedGroups = {};
+    Object.entries(grouped).forEach(([offset, fields]) => {
+      // 统一转为大写比较（因为用户可能输入 0x0000 或 0X0000）
+      if (targetOffsets.has(offset.toUpperCase())) {
+        matchedGroups[offset] = fields;
+      }
+    });
+
+    // 按数值排序
+    return Object.entries(matchedGroups).sort((a, b) => {
+      const numA = parseInt(a[0].replace(/^0x/i, ''), 16);
+      const numB = parseInt(b[0].replace(/^0x/i, ''), 16);
       return numA - numB;
     });
   }
 
-  // 有搜索词 → 只保留有匹配的寄存器组，但每个组的 fields 后面会在渲染时过滤
-  const matchedGroups = {};
+  // === 其他情况：普通搜索（单个地址或关键词） ===
+  const lowerQueryLower = lowerQuery.toLowerCase();
+
+  // 判断是否是单个地址搜索（宽松匹配）
+  const isSingleAddress = /^0x[0-9a-f]+$/i.test(lowerQuery) || /^[0-9a-f]+$/i.test(lowerQuery);
+
   const grouped = data.reduce((acc, item) => {
     if (!acc[item.offset]) acc[item.offset] = [];
     acc[item.offset].push(item);
     return acc;
   }, {});
 
-  Object.entries(grouped).forEach(([offset, fields]) => {
-    // 检查该寄存器组是否有**任何匹配**（包括寄存器名、offset本身）
-    const hasMatch = fields.some(f => 
-      f.reg_name?.toLowerCase().includes(lowerQuery) ||
-      f.field_name?.toLowerCase().includes(lowerQuery) ||
-      f.bit_range?.toLowerCase().includes(lowerQuery) ||
-      f.rw?.toLowerCase().includes(lowerQuery) ||
-      f.reset?.toLowerCase().includes(lowerQuery) ||
-      f.description?.toLowerCase().includes(lowerQuery) ||
-      offset.toLowerCase().includes(lowerQuery)
-    );
+  const matchedGroups = {};
 
-    // 只要有任何匹配，就保留整个寄存器组（但 fields 会在渲染时过滤）
-    if (hasMatch) {
-      matchedGroups[offset] = fields;  // 这里先完整保存 fields，后面渲染时再过滤
+  Object.entries(grouped).forEach(([offset, fields]) => {
+    let matches = false;
+
+    // 单个地址搜索时优先精确匹配 offset
+    if (isSingleAddress) {
+      const cleanOffset = offset.replace(/^0x/i, '').toUpperCase();
+      const cleanQuery = lowerQuery.replace(/^0x/i, '').toUpperCase();
+      if (cleanOffset === cleanQuery || cleanOffset.startsWith(cleanQuery)) {
+        matches = true;
+      }
+    }
+
+    // 普通关键词匹配（寄存器名、字段名、描述等）
+    if (!matches) {
+      matches = fields.some(f => 
+        (f.reg_name || '').toLowerCase().includes(lowerQueryLower) ||
+        (f.field_name || '').toLowerCase().includes(lowerQueryLower) ||
+        (f.bit_range || '').toLowerCase().includes(lowerQueryLower) ||
+        (f.rw || '').toLowerCase().includes(lowerQueryLower) ||
+        (f.reset || '').toLowerCase().includes(lowerQueryLower) ||
+        (f.description || '').toLowerCase().includes(lowerQueryLower) ||
+        offset.toLowerCase().includes(lowerQueryLower)
+      );
+    }
+
+    if (matches) {
+      matchedGroups[offset] = fields;
     }
   });
 
+  // 按 offset 数值排序
   return Object.entries(matchedGroups).sort((a, b) => {
-    const numA = parseInt(a[0].replace('0x', ''), 16);
-    const numB = parseInt(b[0].replace('0x', ''), 16);
+    const numA = parseInt(a[0].replace(/^0x/i, ''), 16);
+    const numB = parseInt(b[0].replace(/^0x/i, ''), 16);
     return numA - numB;
   });
 }
@@ -570,7 +595,7 @@ function renderBatch() {
     const regValue = currentValues[offset] ?? 0n;
     const hexVal = regValue.toString(16).toUpperCase().padStart(Math.ceil(width/4), '0');
     
-    // 判断是否修改过
+    // 判断是否被用户修改过
     const isModified = regValue !== (originalDefaults[offset] ?? 0n);
     const modifiedClass = isModified ? 'border-l-4 border-l-orange-400' : '';
     
@@ -579,7 +604,7 @@ function renderBatch() {
     const hasAnyOverlap = overlapIndices.size > 0;
     const overlapWarning = hasAnyOverlap ? '<span class="ml-2 px-2 py-0.5 bg-red-500 text-white text-[10px] rounded">重叠警告</span>' : '';
 
-    // 寄存器头部行（完整显示，包括完整二进制位图）
+    // 寄存器头部行（始终完整显示，包括完整二进制位图）
     const hTr = document.createElement('tr');
     hTr.className = `group-header ${modifiedClass}`;
     hTr.innerHTML = `
@@ -611,24 +636,48 @@ function renderBatch() {
     `;
     tbody.appendChild(hTr);
 
-    // 字段行：只渲染匹配搜索的字段
+    // ────────────────────────────────────────────────
+    // 字段行渲染逻辑（核心判断部分）
+    // ────────────────────────────────────────────────
     const lowerQuery = (currentSearchQuery || '').toLowerCase().trim();
 
-    fields.forEach((f, idx) => {
-      // 判断当前字段是否匹配搜索
-      const isFieldMatch = !lowerQuery || (
-        (f.reg_name || '').toLowerCase().includes(lowerQuery) ||
-        (f.field_name || '').toLowerCase().includes(lowerQuery) ||
-        (f.bit_range || '').toLowerCase().includes(lowerQuery) ||
-        (f.rw || '').toLowerCase().includes(lowerQuery) ||
-        (f.reset || '').toLowerCase().includes(lowerQuery) ||
-        (f.description || '').toLowerCase().includes(lowerQuery)
-      );
+    // 判断本次搜索是否针对这个 offset（宽松匹配）
+    const cleanQuery = lowerQuery.replace(/^0x/i, '').replace(/[^0-9a-f]/gi, '');
+    const cleanOffset = offset.toLowerCase().replace('0x', '').replace(/[^0-9a-f]/gi, '');
 
-      // 只渲染匹配的字段（无搜索时全部渲染）
-      if (isFieldMatch) {
+    // 清理搜尋字串，移除 0x 前綴與非 hex 字元
+    const cleanQueryParts = lowerQuery.split('&&')
+      .map(p => p.trim().replace(/^0x/i, '').replace(/[^0-9a-f]/gi, ''))
+      .filter(Boolean);
+
+    // 是否為 offset 搜尋（單一或多個）
+    const isOffsetSearch = cleanQueryParts.length > 0 && 
+    cleanQueryParts.every(part => /^[0-9a-f]+$/i.test(part)) &&
+    // 至少有一個 part 與目前這個 offset 相關（避免全部不相關的組合）
+    cleanQueryParts.some(part => cleanOffset.includes(part));
+    fields.forEach((f, idx) => {
+      let shouldShowField = false;
+
+      if (isOffsetSearch) {
+        // 如果搜索的是 offset → 显示该寄存器所有字段
+        shouldShowField = true;
+      } else if (lowerQuery) {
+        // 普通关键词搜索 → 只显示匹配的字段
+        shouldShowField = (
+          (f.reg_name || '').toLowerCase().includes(lowerQuery) ||
+          (f.field_name || '').toLowerCase().includes(lowerQuery) ||
+          (f.bit_range || '').toLowerCase().includes(lowerQuery) ||
+          (f.rw || '').toLowerCase().includes(lowerQuery) ||
+          (f.reset || '').toLowerCase().includes(lowerQuery) ||
+          (f.description || '').toLowerCase().includes(lowerQuery)
+        );
+      } else {
+        // 无搜索词 → 显示全部字段
+        shouldShowField = true;
+      }
+
+      if (shouldShowField) {
         const tr = document.createElement('tr');
-        // 重叠高亮
         tr.className = overlapIndices.has(idx) ? 'bg-red-50' : (isModified ? 'bg-orange-50/30' : '');
 
         const fieldNameHtml = highlightText(f.field_name, currentSearchQuery);
