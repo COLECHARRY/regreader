@@ -299,11 +299,12 @@ async function main() {
   console.log(`📌 上次分析的 commit: ${state.lastCommitHash ? state.lastCommitHash.substring(0, 7) : '无'}\n`);
   
   // 检查是否有新变化
+  let uncommitted = [];
   if (state.lastCommitHash === latestCommit) {
     console.log('✅ 自上次分析后没有新提交');
     
     // 仍然检查未提交的更改
-    const uncommitted = getUncommittedChanges(repoPath);
+    uncommitted = getUncommittedChanges(repoPath);
     if (uncommitted.length > 0) {
       console.log(`⚠️ 检测到 ${uncommitted.length} 个未提交的更改`);
       
@@ -394,7 +395,7 @@ async function main() {
   }
   
   // 未提交的更改
-  const uncommitted = getUncommittedChanges(repoPath);
+  uncommitted = getUncommittedChanges(repoPath);
   
   // 生成版本文档
   const doc = await generateVersionDoc(repoPath, newCommits, uncommitted, diffContent);
