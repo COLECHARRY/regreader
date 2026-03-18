@@ -832,7 +832,7 @@ async function copyCode(offset) {
 
   const mainHex = val.toString(16).toUpperCase().padStart(8, '0');
   const comment = commentParts.length > 0 ? ` // ${commentParts.join(', ')}` : '';
-  const code = `write_reg(${offset}<<2, 0x${mainHex});${comment}`;
+  const code = `adi.write(${offset}>>2, 0x${mainHex});${comment}`;
   return code;
 }
 
