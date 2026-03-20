@@ -2,8 +2,8 @@
   "repos": [
     "D:/code/regreader"
   ],
-  "outputFile": "C:/Users/zylov/.openclaw/workspace/memory/git-daily-report.md",
-  "versionDocDir": "D:/code/regreader/docs/versions",
+  "outputFile": "D:/code/regreader/scripts/git-monitor/output/git-daily-report.md",
+  "versionDocDir": "D:/code/regreader/scripts/git-monitor/output/versions",
   "modelApiKey": null,
   
   "apiBaseUrl": "api.minimax.chat",
@@ -12,5 +12,5 @@
   "requireConventionalCommits": true,
   
   "enableDashboard": true,
-  "dashboardOutput": "C:/Users/zylov/.openclaw/workspace/memory/git-dashboard.html"
+  "dashboardOutput": "D:/code/regreader/scripts/git-monitor/output/git-dashboard.html"
 }
