@@ -1,0 +1,16 @@
+{
+  "repos": [
+    "D:/code/regreader"
+  ],
+  "outputFile": "C:/Users/zylov/.openclaw/workspace/memory/git-daily-report.md",
+  "versionDocDir": "D:/code/regreader/docs/versions",
+  "modelApiKey": null,
+  
+  "apiBaseUrl": "api.minimax.chat",
+  "ignorePatterns": ["node_modules", ".git", "dist", "build", "__pycache__", ".venv", "vendor", ".idea", ".vscode"],
+  "sensitivePatterns": [".env", ".key", ".pem", "password", "secret", "token", ".credentials", "secrets.json"],
+  "requireConventionalCommits": true,
+  
+  "enableDashboard": true,
+  "dashboardOutput": "C:/Users/zylov/.openclaw/workspace/memory/git-dashboard.html"
+}
