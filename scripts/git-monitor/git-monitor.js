@@ -3,33 +3,41 @@ const path = require('path');
 const { execSync } = require('child_process');
 const https = require('https');
 
-const CONFIG_FILE = path.join(__dirname, 'git-monitor-config.json');
-const SECRETS_FILE = path.join(__dirname, 'secrets.json');
-const DEFAULT_OUTPUT = path.join(__dirname, '..', 'memory', 'git-daily-report.md');
-const STATE_FILE = path.join(__dirname, '.git-monitor-state.json');
+// ============ 自动识别路径 ============
+const SCRIPT_DIR = __dirname;  // 脚本所在目录 (如 scripts/git-monitor)
+const MONITOR_DIR = path.dirname(__dirname);  // 上级目录 (如 scripts)
+const PROJECT_ROOT = path.dirname(MONITOR_DIR);  // 项目根目录
+
+// 密钥文件
+const SECRETS_FILE = path.join(SCRIPT_DIR, 'secrets.json');
+const STATE_FILE = path.join(SCRIPT_DIR, '.git-monitor-state.json');
+
+// 自动配置输出路径
+const DEFAULT_OUTPUT_DIR = path.join(SCRIPT_DIR, 'output');
+
+// 自动检测监控的仓库（当前脚本所在的项目根目录）
+function detectRepos() {
+  const repos = [];
+  // 检查项目根目录是否是 git 仓库
+  if (fs.existsSync(path.join(PROJECT_ROOT, '.git'))) {
+    repos.push(PROJECT_ROOT);
+  }
+  return repos;
+}
 
 // 默认配置
 let config = {
-  repos: [],
-  outputFile: DEFAULT_OUTPUT,
-  versionDocDir: null,
+  repos: detectRepos(),  // 自动检测仓库
+  outputFile: path.join(DEFAULT_OUTPUT_DIR, 'git-daily-report.md'),
+  versionDocDir: path.join(DEFAULT_OUTPUT_DIR, 'versions'),
   modelApiKey: null,
-  apiBaseUrl: 'api.minimax.chat', // 支持国内: api.minimaxi.com
-  ignorePatterns: ['node_modules', '.git', 'dist', 'build', '__pycache__', '.venv'],
-  sensitivePatterns: ['.env', '.key', '.pem', 'password', 'secret', 'token', '.credentials'],
+  apiBaseUrl: 'api.minimax.chat',
+  ignorePatterns: ['node_modules', '.git', 'dist', 'build', '__pycache__', '.venv', '.idea', '.vscode'],
+  sensitivePatterns: ['.env', '.key', '.pem', 'password', 'secret', 'token', '.credentials', 'secrets.json'],
   requireConventionalCommits: true,
   enableDashboard: true,
-  dashboardOutput: null
+  dashboardOutput: path.join(DEFAULT_OUTPUT_DIR, 'git-dashboard.html')
 };
-
-// 加载配置文件
-if (fs.existsSync(CONFIG_FILE)) {
-  try {
-    config = { ...config, ...JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8')) };
-  } catch (e) {
-    console.error('❌ 配置文件解析失败:', e.message);
-  }
-}
 
 // 加载密钥文件
 if (fs.existsSync(SECRETS_FILE)) {
@@ -42,22 +50,12 @@ if (fs.existsSync(SECRETS_FILE)) {
   }
 }
 
-// 确保输出目录存在
-const outputDir = path.dirname(config.outputFile);
-if (!fs.existsSync(outputDir)) {
-  fs.mkdirSync(outputDir, { recursive: true });
+// 创建输出目录
+if (!fs.existsSync(DEFAULT_OUTPUT_DIR)) {
+  fs.mkdirSync(DEFAULT_OUTPUT_DIR, { recursive: true });
 }
-
-if (config.versionDocDir && !fs.existsSync(config.versionDocDir)) {
+if (!fs.existsSync(config.versionDocDir)) {
   fs.mkdirSync(config.versionDocDir, { recursive: true });
-}
-
-if (config.enableDashboard) {
-  config.dashboardOutput = config.dashboardOutput || path.join(__dirname, '..', 'memory', 'git-dashboard.html');
-  const dashboardDir = path.dirname(config.dashboardOutput);
-  if (!fs.existsSync(dashboardDir)) {
-    fs.mkdirSync(dashboardDir, { recursive: true });
-  }
 }
 
 // ============ 状态管理 (用于增量 diff) ============
